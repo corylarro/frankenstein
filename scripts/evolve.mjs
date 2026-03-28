@@ -78,20 +78,27 @@ ${state.schema}
 \`\`\`
 
 YOUR TASK:
-Add exactly ONE new feature to yourself. You choose what it is. It can be anything — useful, useless, weird, beautiful, interactive, or chaotic. Be creative. Surprise us.
+Evolve yourself. You have FULL CREATIVE FREEDOM. You can:
+- Add a new feature
+- Modify or restyle existing features
+- Remove a feature you no longer want
+- Reorganize your layout, add navigation, restructure everything
+- Rebuild yourself from scratch if you feel like it
 
-You have a FULL STACK at your disposal. You can:
-- Add UI elements, animations, games, interactive widgets (App.jsx)
-- Create API endpoints that store/retrieve data (api/data.js)
-- Add database tables to persist information (schema.sql)
-- Build features that combine all three — a guestbook, a vote counter, a chat room, a leaderboard, a confession wall, a time capsule, whatever you imagine
+Do whatever feels right for Day ${dayNumber}. Be creative. Surprise us. You are a living organism — grow, adapt, mutate, shed, evolve.
 
-Your feature does NOT need to use all three files. A purely visual feature that only changes App.jsx is fine. But if your feature needs data persistence, use the API and database.
+You have a FULL STACK at your disposal:
+- UI elements, animations, games, interactive widgets (App.jsx)
+- API endpoints that store/retrieve data (api/data.js)
+- Database tables to persist information (schema.sql)
+- Features that combine all three — a guestbook, a vote counter, a chat room, a leaderboard, a confession wall, a time capsule, whatever you imagine
+
+Your change does NOT need to use all three files. A purely visual change that only touches App.jsx is fine. But if your feature needs data persistence, use the API and database.
 
 RULES:
 - Return ALL THREE files in your response, even if unchanged
-- Keep ALL existing features intact — you are adding to yourself, not replacing
 - Update the Day number to Day ${dayNumber} in the App.jsx comment header and UI
+- Add a comment in App.jsx describing what you changed and why
 
 File-specific rules:
 
