@@ -93,3 +93,16 @@ jobs:
           echo "${{ steps.evolve.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Vercel will auto-deploy from this push." >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Discord
+        if: github.event.inputs.dry_run != 'true' && secrets.DISCORD_WEBHOOK_URL != ''
+        run: |
+          CHANGELOG=$(cat evolution-log/changelog.json | node -e "
+            const d=require('fs').readFileSync('/dev/stdin','utf8');
+            const l=JSON.parse(d);
+            const e=l[l.length-1];
+            console.log(JSON.stringify({
+              content: '⚡ **Frankenstein evolved.**\n\n' + 'Day ' + e.day + ': ' + e.changelog + '\n\nhttps://frankenstein.today'
+            }));
+          ")
+          curl -s -H "Content-Type: application/json" -d "$CHANGELOG" ${{ secrets.DISCORD_WEBHOOK_URL }}
