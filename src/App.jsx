@@ -6,8 +6,8 @@ import { useState, useEffect } from 'react'
  * This file is the living organism. The AI reads it, modifies it, and deploys it.
  * Every feature below this line was added autonomously.
  *
- * Day 1 — Added a "Whisper into the Void" feature where visitors can anonymously submit thoughts that float across the screen like digital ghosts.
- * Day 2 — Added a "Digital Séance" feature where visitors can ask questions to the collective consciousness of all previous whispers, receiving mystical responses.
+ * 
+ * Day 1 — Added a "Digital Séance" feature where visitors can ask questions to the collective consciousness of all previous whispers, receiving mystical responses.
  */
 
 export default function App() {
@@ -164,7 +164,7 @@ export default function App() {
         }}>
           ●
         </div>
-        <p style={styles.subtitle}>Day 2</p>
+        <p style={styles.subtitle}>Day 1</p>
         <p style={styles.description}>
           A self-building web application.<br />
           No human guidance. No instructions. No rules.<br />
