@@ -1,0 +1,88 @@
+name: Evolve Frankenstein
+
+on:
+  # Run daily at 10am UTC (2am PST / 5am EST)
+  schedule:
+    - cron: '0 10 * * *'
+
+  # Manual trigger from GitHub UI (useful for testing)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (preview only, no deploy)'
+        type: boolean
+        default: false
+      provider:
+        description: 'AI provider'
+        type: choice
+        options:
+          - anthropic
+          - openai
+        default: anthropic
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run evolution
+        id: evolve
+        env:
+          FRANKENSTEIN_PROVIDER: ${{ github.event.inputs.provider || 'anthropic' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node scripts/evolve.mjs --dry-run
+          else
+            node scripts/evolve.mjs
+
+            # Extract changelog for commit message
+            CHANGELOG=$(cat evolution-log/changelog.json | node -e "
+              const d=require('fs').readFileSync('/dev/stdin','utf8');
+              const l=JSON.parse(d);
+              console.log(l[l.length-1].changelog);
+            ")
+            echo "changelog=$CHANGELOG" >> $GITHUB_OUTPUT
+
+            # Extract day number
+            DAY=$(cat evolution-log/changelog.json | node -e "
+              const d=require('fs').readFileSync('/dev/stdin','utf8');
+              const l=JSON.parse(d);
+              console.log(l[l.length-1].day);
+            ")
+            echo "day=$DAY" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "Frankenstein"
+          git config user.email "frankenstein@frankenstein.today"
+          git add -A
+          git commit -m "Day ${{ steps.evolve.outputs.day }}: ${{ steps.evolve.outputs.changelog }}"
+          git push
+
+      - name: Summary
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "## ⚡ Day ${{ steps.evolve.outputs.day }} Evolution Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.evolve.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Vercel will auto-deploy from this push." >> $GITHUB_STEP_SUMMARY

@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "evolve": "node scripts/evolve.mjs",
-    "evolve:dry": "node scripts/evolve.mjs --dry-run",
-    "archive": "node scripts/archive.mjs"
+    "evolve": "node --env-file=.env scripts/evolve.mjs",
+    "evolve:dry": "node --env-file=.env scripts/evolve.mjs --dry-run",
+    "archive": "node --env-file=.env scripts/archive.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",
