@@ -1,0 +1,14 @@
+[
+  {
+    "day": 1,
+    "timestamp": "2026-03-28T19:38:10.546Z",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "changelog": "Added a \"Whisper into the Void\" feature where visitors can anonymously submit short thoughts that float across the screen like digital ghosts, creating an ethereal layer of human consciousness over Frankenstein's interface.",
+    "filesChanged": {
+      "app": true,
+      "api": true,
+      "schema": true
+    }
+  }
+]

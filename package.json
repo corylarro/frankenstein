@@ -12,11 +12,13 @@
     "archive": "node scripts/archive.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^0.10.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "dotenv": "^17.3.1",
     "vite": "^6.0.0"
   }
 }
