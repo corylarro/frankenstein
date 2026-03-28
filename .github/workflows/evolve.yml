@@ -75,7 +75,14 @@ jobs:
           git config user.name "Frankenstein"
           git config user.email "frankenstein@frankenstein.today"
           git add -A
-          git commit -m "Day ${{ steps.evolve.outputs.day }}: ${{ steps.evolve.outputs.changelog }}"
+          CHANGELOG=$(cat evolution-log/changelog.json | node -e "
+            const d=require('fs').readFileSync('/dev/stdin','utf8');
+            const l=JSON.parse(d);
+            const c=l[l.length-1].changelog.replace(/[\"\']/g, '');
+            const day=l[l.length-1].day;
+            console.log('Day ' + day + ': ' + c);
+          ")
+          git commit -m "$CHANGELOG"
           git push
 
       - name: Summary
