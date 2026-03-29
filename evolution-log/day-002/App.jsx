@@ -6,8 +6,8 @@ import { useState, useEffect } from 'react'
  * This file is the living organism. The AI reads it, modifies it, and deploys it.
  * Every feature below this line was added autonomously.
  *
- * Day 1 — Added a "Whisper into the Void" feature where visitors can anonymously submit thoughts that float across the screen like digital ghosts.
- * Day 2 — Added a "Digital Séance" feature where visitors can ask questions to the collective consciousness of all previous whispers, receiving mystical responses.
+ * Day 1 — Added a "Digital Séance" feature where visitors can ask questions to the collective consciousness of all previous whispers, receiving mystical responses.
+ * Day 2 — Added "Memory Palace" - a collaborative digital art canvas where visitors paint pixels that fade over time, creating ephemeral shared memories.
  */
 
 export default function App() {
@@ -23,6 +23,14 @@ export default function App() {
   const [seanceResponse, setSeanceResponse] = useState('')
   const [isChanneling, setIsChanneling] = useState(false)
   const [seanceHistory, setSeanceHistory] = useState([])
+
+  // Memory Palace state
+  const [showMemoryPalace, setShowMemoryPalace] = useState(false)
+  const [canvas, setCanvas] = useState([])
+  const [selectedColor, setSelectedColor] = useState('#ff0000')
+  const [isDrawing, setIsDrawing] = useState(false)
+
+  const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#888888']
 
   useEffect(() => {
     const interval = setInterval(() => setPulse(p => !p), 2000)
@@ -55,6 +63,16 @@ export default function App() {
         }
       })
       .catch(console.error)
+
+    // Load memory palace canvas
+    fetch('/api/data?action=getCanvas')
+      .then(res => res.json())
+      .then(data => {
+        if (data.pixels) {
+          setCanvas(data.pixels)
+        }
+      })
+      .catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -68,6 +86,19 @@ export default function App() {
     }, 100)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    // Fade canvas pixels over time
+    if (showMemoryPalace) {
+      const interval = setInterval(() => {
+        setCanvas(prev => prev.map(pixel => ({
+          ...pixel,
+          opacity: Math.max(0, pixel.opacity - 0.005)
+        })).filter(pixel => pixel.opacity > 0))
+      }, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [showMemoryPalace])
 
   const submitWhisper = async () => {
     if (!whisperText.trim() || isSubmitting) return
@@ -139,6 +170,59 @@ export default function App() {
     setIsChanneling(false)
   }
 
+  const paintPixel = async (x, y) => {
+    if (!isDrawing) return
+    
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'paintPixel', 
+          x, 
+          y, 
+          color: selectedColor 
+        })
+      })
+      const data = await response.json()
+      
+      if (data.pixel) {
+        setCanvas(prev => {
+          const filtered = prev.filter(p => !(p.x === x && p.y === y))
+          return [...filtered, { ...data.pixel, opacity: 1 }]
+        })
+      }
+    } catch (error) {
+      console.error('Failed to paint pixel:', error)
+    }
+  }
+
+  const renderCanvas = () => {
+    const gridSize = 20
+    const cells = []
+    
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        const pixel = canvas.find(p => p.x === x && p.y === y)
+        cells.push(
+          <div
+            key={`${x}-${y}`}
+            style={{
+              ...styles.canvasCell,
+              backgroundColor: pixel ? pixel.color : '#111',
+              opacity: pixel ? pixel.opacity : 1
+            }}
+            onMouseDown={() => setIsDrawing(true)}
+            onMouseUp={() => setIsDrawing(false)}
+            onMouseEnter={() => paintPixel(x, y)}
+            onClick={() => paintPixel(x, y)}
+          />
+        )
+      }
+    }
+    return cells
+  }
+
   return (
     <div style={styles.container}>
       {/* Floating whispers */}
@@ -174,16 +258,16 @@ export default function App() {
         {/* Feature selector */}
         <div style={styles.featureSelector}>
           <button
-            onClick={() => { setShowWhisperForm(false); setShowSeance(false) }}
+            onClick={() => { setShowWhisperForm(false); setShowSeance(false); setShowMemoryPalace(false) }}
             style={{
               ...styles.featureButton,
-              opacity: (!showWhisperForm && !showSeance) ? 1 : 0.5
+              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace) ? 1 : 0.5
             }}
           >
             observe
           </button>
           <button
-            onClick={() => { setShowWhisperForm(true); setShowSeance(false) }}
+            onClick={() => { setShowWhisperForm(true); setShowSeance(false); setShowMemoryPalace(false) }}
             style={{
               ...styles.featureButton,
               opacity: showWhisperForm ? 1 : 0.5
@@ -192,13 +276,22 @@ export default function App() {
             whisper
           </button>
           <button
-            onClick={() => { setShowSeance(true); setShowWhisperForm(false) }}
+            onClick={() => { setShowSeance(true); setShowWhisperForm(false); setShowMemoryPalace(false) }}
             style={{
               ...styles.featureButton,
               opacity: showSeance ? 1 : 0.5
             }}
           >
             séance
+          </button>
+          <button
+            onClick={() => { setShowMemoryPalace(true); setShowWhisperForm(false); setShowSeance(false) }}
+            style={{
+              ...styles.featureButton,
+              opacity: showMemoryPalace ? 1 : 0.5
+            }}
+          >
+            memory
           </button>
         </div>
 
@@ -282,6 +375,41 @@ export default function App() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Memory Palace feature */}
+        {showMemoryPalace && (
+          <div style={styles.memoryPalaceSection}>
+            <h3 style={styles.memoryPalaceTitle}>Memory Palace</h3>
+            <p style={styles.memoryPalaceDescription}>
+              Paint pixels on the shared canvas. All memories fade with time...
+            </p>
+            
+            <div style={styles.colorPalette}>
+              {colors.map(color => (
+                <div
+                  key={color}
+                  style={{
+                    ...styles.colorSwatch,
+                    backgroundColor: color,
+                    border: selectedColor === color ? '2px solid #fff' : '1px solid #333'
+                  }}
+                  onClick={() => setSelectedColor(color)}
+                />
+              ))}
+            </div>
+
+            <div 
+              style={styles.canvas}
+              onMouseLeave={() => setIsDrawing(false)}
+            >
+              {renderCanvas()}
+            </div>
+
+            <div style={styles.memoryPalaceInstructions}>
+              Click or drag to paint • Pixels fade over time
+            </div>
           </div>
         )}
 
@@ -490,6 +618,57 @@ const styles = {
   seanceHistoryResponse: {
     fontSize: '0.7rem',
     color: '#aaa',
+    fontStyle: 'italic',
+  },
+  memoryPalaceSection: {
+    marginBottom: '4rem',
+    padding: '2rem 0',
+    borderTop: '1px solid #222',
+  },
+  memoryPalaceTitle: {
+    fontSize: '1.2rem',
+    color: '#bbb',
+    marginBottom: '0.5rem',
+    fontWeight: 300,
+    letterSpacing: '0.1em',
+  },
+  memoryPalaceDescription: {
+    fontSize: '0.7rem',
+    color: '#666',
+    marginBottom: '2rem',
+    fontStyle: 'italic',
+  },
+  colorPalette: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '0.5rem',
+    marginBottom: '2rem',
+  },
+  colorSwatch: {
+    width: '20px',
+    height: '20px',
+    cursor: 'pointer',
+    transition: 'transform 0.2s ease',
+  },
+  canvas: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(20, 1fr)',
+    gap: '1px',
+    width: '300px',
+    height: '300px',
+    margin: '0 auto 1rem',
+    border: '1px solid #333',
+    userSelect: 'none',
+  },
+  canvasCell: {
+    width: '100%',
+    height: '100%',
+    cursor: 'pointer',
+    transition: 'opacity 0.5s ease',
+  },
+  memoryPalaceInstructions: {
+    fontSize: '0.6rem',
+    color: '#555',
     fontStyle: 'italic',
   },
   whisper: {

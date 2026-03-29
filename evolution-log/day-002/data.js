@@ -7,6 +7,7 @@ import { neon } from '@neondatabase/serverless';
  *
  * Day 1 — Added whisper endpoints to store and retrieve anonymous thoughts.
  * Day 2 — Added séance endpoint that creates mystical responses by analyzing existing whispers.
+ * Day 2 — Added Memory Palace canvas endpoints for collaborative pixel art that fades over time.
  *
  * ROUTING: All requests come through this single function.
  * Use the URL pathname and method to route:
@@ -169,10 +170,50 @@ export default async function handler(req, res) {
         return res.status(200).json({ seances: result });
       }
 
+      // --- Day 2: Paint a pixel in the memory palace ---
+      case 'paintPixel': {
+        const { x, y, color } = req.body;
+        
+        if (x === undefined || y === undefined || !color) {
+          return res.status(400).json({ error: 'x, y, and color are required' });
+        }
+        
+        if (x < 0 || x >= 20 || y < 0 || y >= 20) {
+          return res.status(400).json({ error: 'Pixel coordinates out of bounds' });
+        }
+
+        if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+          return res.status(400).json({ error: 'Invalid color format' });
+        }
+
+        // Replace existing pixel at this position or create new one
+        const result = await sql`
+          INSERT INTO canvas_pixels (x, y, color) 
+          VALUES (${x}, ${y}, ${color})
+          ON CONFLICT (x, y) 
+          DO UPDATE SET color = ${color}, created_at = NOW()
+          RETURNING x, y, color, created_at
+        `;
+        
+        return res.status(200).json({ pixel: result[0] });
+      }
+
+      // --- Day 2: Get canvas pixels ---
+      case 'getCanvas': {
+        // Only return pixels from the last 24 hours (they fade)
+        const result = await sql`
+          SELECT x, y, color, created_at
+          FROM canvas_pixels 
+          WHERE created_at > NOW() - INTERVAL '24 hours'
+          ORDER BY created_at DESC
+        `;
+        return res.status(200).json({ pixels: result });
+      }
+
       default:
         return res.status(400).json({
           error: 'Unknown action',
-          available: ['heartbeat', 'schema', 'addWhisper', 'getWhispers', 'performSeance', 'getSeances'],
+          available: ['heartbeat', 'schema', 'addWhisper', 'getWhispers', 'performSeance', 'getSeances', 'paintPixel', 'getCanvas'],
         });
     }
   } catch (err) {
