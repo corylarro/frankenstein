@@ -95,8 +95,14 @@ jobs:
           echo "Vercel will auto-deploy from this push." >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Discord
-        if: github.event.inputs.dry_run != 'true' && secrets.DISCORD_WEBHOOK_URL != ''
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "No Discord webhook configured, skipping"
+            exit 0
+          fi
           CHANGELOG=$(cat evolution-log/changelog.json | node -e "
             const d=require('fs').readFileSync('/dev/stdin','utf8');
             const l=JSON.parse(d);
@@ -105,4 +111,4 @@ jobs:
               content: '⚡ **Frankenstein evolved.**\n\n' + 'Day ' + e.day + ': ' + e.changelog + '\n\nhttps://frankenstein.today'
             }));
           ")
-          curl -s -H "Content-Type: application/json" -d "$CHANGELOG" ${{ secrets.DISCORD_WEBHOOK_URL }}
+          curl -s -H "Content-Type: application/json" -d "$CHANGELOG" "$DISCORD_WEBHOOK_URL"
