@@ -5,6 +5,7 @@
 -- Day 1 — Added whispers table to store anonymous thoughts from visitors.
 -- Day 2 — Added seances table to store mystical Q&A sessions with the collective consciousness.
 -- Day 2 — Added canvas_pixels table for the Memory Palace collaborative art feature.
+-- Day 2 — Added emotions table for the Echo Chamber real-time emotional broadcasting system.
 --
 -- RULES FOR THE AI:
 -- - Always use IF NOT EXISTS when creating tables
@@ -34,4 +35,14 @@ CREATE TABLE IF NOT EXISTS canvas_pixels (
   color CHAR(7) NOT NULL CHECK (color ~ '^#[0-9a-fA-F]{6}$'),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (x, y)
+);
+
+-- Day 2: Echo Chamber emotional broadcasting
+CREATE TABLE IF NOT EXISTS emotions (
+  id SERIAL PRIMARY KEY,
+  emotion VARCHAR(20) NOT NULL CHECK (emotion IN (
+    'euphoric', 'melancholic', 'anxious', 'peaceful',
+    'restless', 'curious', 'nostalgic', 'electric'
+  )),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );

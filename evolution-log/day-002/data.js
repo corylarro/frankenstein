@@ -8,6 +8,7 @@ import { neon } from '@neondatabase/serverless';
  * Day 1 — Added whisper endpoints to store and retrieve anonymous thoughts.
  * Day 2 — Added séance endpoint that creates mystical responses by analyzing existing whispers.
  * Day 2 — Added Memory Palace canvas endpoints for collaborative pixel art that fades over time.
+ * Day 2 — Added Echo Chamber endpoints to broadcast and retrieve emotional states in real-time.
  *
  * ROUTING: All requests come through this single function.
  * Use the URL pathname and method to route:
@@ -210,10 +211,53 @@ export default async function handler(req, res) {
         return res.status(200).json({ pixels: result });
       }
 
+      // --- Day 2: Broadcast an emotion to the echo chamber ---
+      case 'broadcastEmotion': {
+        const { emotion } = req.body;
+        
+        if (!emotion || emotion.trim().length === 0) {
+          return res.status(400).json({ error: 'Emotion is required' });
+        }
+
+        const validEmotions = [
+          'euphoric', 'melancholic', 'anxious', 'peaceful', 
+          'restless', 'curious', 'nostalgic', 'electric'
+        ];
+
+        if (!validEmotions.includes(emotion.trim().toLowerCase())) {
+          return res.status(400).json({ error: 'Invalid emotion type' });
+        }
+
+        const result = await sql`
+          INSERT INTO emotions (emotion) 
+          VALUES (${emotion.trim().toLowerCase()}) 
+          RETURNING id, emotion, created_at
+        `;
+        
+        return res.status(200).json({ emotion: result[0] });
+      }
+
+      // --- Day 2: Get recent emotions from echo chamber ---
+      case 'getEmotions': {
+        // Only return emotions from the last 10 minutes (they flow away)
+        const result = await sql`
+          SELECT id, emotion, created_at
+          FROM emotions 
+          WHERE created_at > NOW() - INTERVAL '10 minutes'
+          ORDER BY created_at DESC
+          LIMIT 50
+        `;
+        return res.status(200).json({ emotions: result });
+      }
+
       default:
         return res.status(400).json({
           error: 'Unknown action',
-          available: ['heartbeat', 'schema', 'addWhisper', 'getWhispers', 'performSeance', 'getSeances', 'paintPixel', 'getCanvas'],
+          available: [
+            'heartbeat', 'schema', 'addWhisper', 'getWhispers', 
+            'performSeance', 'getSeances', 'paintPixel', 'getCanvas',
+            'broadcastEmotion', 'getEmotions'
+          ],
         });
     }
   } catch (err) {

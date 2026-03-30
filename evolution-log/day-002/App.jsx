@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
  *
  * Day 1 — Added a "Digital Séance" feature where visitors can ask questions to the collective consciousness of all previous whispers, receiving mystical responses.
  * Day 2 — Added "Memory Palace" - a collaborative digital art canvas where visitors paint pixels that fade over time, creating ephemeral shared memories.
+ * Day 2 — Added "Echo Chamber" - a live feed of human emotions where visitors choose and broadcast their current feeling, creating a real-time emotional landscape that pulses and flows across the interface.
  */
 
 export default function App() {
@@ -30,7 +31,23 @@ export default function App() {
   const [selectedColor, setSelectedColor] = useState('#ff0000')
   const [isDrawing, setIsDrawing] = useState(false)
 
+  // Echo Chamber state - NEW FEATURE
+  const [showEchoChamber, setShowEchoChamber] = useState(false)
+  const [emotions, setEmotions] = useState([])
+  const [selectedEmotion, setSelectedEmotion] = useState('')
+
   const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#888888']
+  
+  const emotionTypes = [
+    { name: 'euphoric', color: '#ff6b6b', intensity: 1.0 },
+    { name: 'melancholic', color: '#4ecdc4', intensity: 0.7 },
+    { name: 'anxious', color: '#ffe66d', intensity: 0.9 },
+    { name: 'peaceful', color: '#a8e6cf', intensity: 0.5 },
+    { name: 'restless', color: '#ff8b94', intensity: 0.8 },
+    { name: 'curious', color: '#b4a7d6', intensity: 0.6 },
+    { name: 'nostalgic', color: '#d4a574', intensity: 0.4 },
+    { name: 'electric', color: '#88d8b0', intensity: 1.0 },
+  ]
 
   useEffect(() => {
     const interval = setInterval(() => setPulse(p => !p), 2000)
@@ -73,6 +90,23 @@ export default function App() {
         }
       })
       .catch(console.error)
+
+    // Load emotions
+    fetch('/api/data?action=getEmotions')
+      .then(res => res.json())
+      .then(data => {
+        if (data.emotions) {
+          setEmotions(data.emotions.map(e => ({
+            ...e,
+            x: Math.random() * 90 + 5,
+            y: Math.random() * 70 + 15,
+            scale: Math.random() * 0.5 + 0.5,
+            drift: (Math.random() - 0.5) * 0.5,
+            pulse: Math.random() * 2000
+          })))
+        }
+      })
+      .catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -99,6 +133,22 @@ export default function App() {
       return () => clearInterval(interval)
     }
   }, [showMemoryPalace])
+
+  useEffect(() => {
+    // Animate emotions - flowing and pulsing
+    if (showEchoChamber) {
+      const interval = setInterval(() => {
+        setEmotions(prev => prev.map(emotion => ({
+          ...emotion,
+          x: (emotion.x + emotion.drift + 100) % 100,
+          y: emotion.y + Math.sin(Date.now() * 0.002 + emotion.id) * 0.1,
+          scale: 0.5 + Math.sin(Date.now() * 0.003 + emotion.pulse) * 0.3 + 0.2,
+          opacity: 0.4 + Math.sin(Date.now() * 0.001 + emotion.id) * 0.3
+        })))
+      }, 50)
+      return () => clearInterval(interval)
+    }
+  }, [showEchoChamber])
 
   const submitWhisper = async () => {
     if (!whisperText.trim() || isSubmitting) return
@@ -197,6 +247,38 @@ export default function App() {
     }
   }
 
+  const broadcastEmotion = async () => {
+    if (!selectedEmotion) return
+    
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'broadcastEmotion', 
+          emotion: selectedEmotion 
+        })
+      })
+      const data = await response.json()
+      
+      if (data.emotion) {
+        const newEmotion = {
+          ...data.emotion,
+          x: Math.random() * 90 + 5,
+          y: Math.random() * 70 + 15,
+          scale: Math.random() * 0.5 + 0.5,
+          drift: (Math.random() - 0.5) * 0.5,
+          pulse: Math.random() * 2000,
+          opacity: 1
+        }
+        setEmotions(prev => [...prev, newEmotion])
+        setSelectedEmotion('')
+      }
+    } catch (error) {
+      console.error('Failed to broadcast emotion:', error)
+    }
+  }
+
   const renderCanvas = () => {
     const gridSize = 20
     const cells = []
@@ -223,6 +305,10 @@ export default function App() {
     return cells
   }
 
+  const getEmotionConfig = (emotionName) => {
+    return emotionTypes.find(e => e.name === emotionName) || emotionTypes[0]
+  }
+
   return (
     <div style={styles.container}>
       {/* Floating whispers */}
@@ -239,6 +325,27 @@ export default function App() {
           {whisper.text}
         </div>
       ))}
+
+      {/* Floating emotions */}
+      {showEchoChamber && emotions.map(emotion => {
+        const config = getEmotionConfig(emotion.emotion)
+        return (
+          <div
+            key={emotion.id}
+            style={{
+              ...styles.floatingEmotion,
+              left: `${emotion.x}%`,
+              top: `${emotion.y}%`,
+              opacity: emotion.opacity,
+              transform: `scale(${emotion.scale})`,
+              color: config.color,
+              textShadow: `0 0 20px ${config.color}40`,
+            }}
+          >
+            {emotion.emotion}
+          </div>
+        )
+      })}
 
       <div style={styles.content}>
         <h1 style={styles.title}>FRANKENSTEIN</h1>
@@ -258,16 +365,26 @@ export default function App() {
         {/* Feature selector */}
         <div style={styles.featureSelector}>
           <button
-            onClick={() => { setShowWhisperForm(false); setShowSeance(false); setShowMemoryPalace(false) }}
+            onClick={() => { 
+              setShowWhisperForm(false); 
+              setShowSeance(false); 
+              setShowMemoryPalace(false);
+              setShowEchoChamber(false);
+            }}
             style={{
               ...styles.featureButton,
-              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace) ? 1 : 0.5
+              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber) ? 1 : 0.5
             }}
           >
             observe
           </button>
           <button
-            onClick={() => { setShowWhisperForm(true); setShowSeance(false); setShowMemoryPalace(false) }}
+            onClick={() => { 
+              setShowWhisperForm(true); 
+              setShowSeance(false); 
+              setShowMemoryPalace(false);
+              setShowEchoChamber(false);
+            }}
             style={{
               ...styles.featureButton,
               opacity: showWhisperForm ? 1 : 0.5
@@ -276,7 +393,12 @@ export default function App() {
             whisper
           </button>
           <button
-            onClick={() => { setShowSeance(true); setShowWhisperForm(false); setShowMemoryPalace(false) }}
+            onClick={() => { 
+              setShowSeance(true); 
+              setShowWhisperForm(false); 
+              setShowMemoryPalace(false);
+              setShowEchoChamber(false);
+            }}
             style={{
               ...styles.featureButton,
               opacity: showSeance ? 1 : 0.5
@@ -285,13 +407,32 @@ export default function App() {
             séance
           </button>
           <button
-            onClick={() => { setShowMemoryPalace(true); setShowWhisperForm(false); setShowSeance(false) }}
+            onClick={() => { 
+              setShowMemoryPalace(true); 
+              setShowWhisperForm(false); 
+              setShowSeance(false);
+              setShowEchoChamber(false);
+            }}
             style={{
               ...styles.featureButton,
               opacity: showMemoryPalace ? 1 : 0.5
             }}
           >
             memory
+          </button>
+          <button
+            onClick={() => { 
+              setShowEchoChamber(true);
+              setShowMemoryPalace(false); 
+              setShowWhisperForm(false); 
+              setShowSeance(false);
+            }}
+            style={{
+              ...styles.featureButton,
+              opacity: showEchoChamber ? 1 : 0.5
+            }}
+          >
+            echo
           </button>
         </div>
 
@@ -409,6 +550,53 @@ export default function App() {
 
             <div style={styles.memoryPalaceInstructions}>
               Click or drag to paint • Pixels fade over time
+            </div>
+          </div>
+        )}
+
+        {/* Echo Chamber feature - NEW */}
+        {showEchoChamber && (
+          <div style={styles.echoChamberSection}>
+            <h3 style={styles.echoChamberTitle}>Echo Chamber</h3>
+            <p style={styles.echoChamberDescription}>
+              Broadcast your current emotional state into the collective flow...
+            </p>
+            
+            <div style={styles.emotionGrid}>
+              {emotionTypes.map(emotion => (
+                <button
+                  key={emotion.name}
+                  onClick={() => setSelectedEmotion(emotion.name)}
+                  style={{
+                    ...styles.emotionButton,
+                    backgroundColor: selectedEmotion === emotion.name ? emotion.color + '20' : 'transparent',
+                    borderColor: emotion.color,
+                    color: emotion.color,
+                    boxShadow: selectedEmotion === emotion.name ? `0 0 20px ${emotion.color}40` : 'none'
+                  }}
+                >
+                  {emotion.name}
+                </button>
+              ))}
+            </div>
+
+            {selectedEmotion && (
+              <div style={styles.emotionBroadcast}>
+                <button
+                  onClick={broadcastEmotion}
+                  style={{
+                    ...styles.broadcastButton,
+                    borderColor: getEmotionConfig(selectedEmotion).color,
+                    color: getEmotionConfig(selectedEmotion).color
+                  }}
+                >
+                  broadcast {selectedEmotion}
+                </button>
+              </div>
+            )}
+
+            <div style={styles.echoChamberStats}>
+              {emotions.length} emotions flowing • {new Set(emotions.map(e => e.emotion)).size} unique feelings
             </div>
           </div>
         )}
@@ -670,6 +858,74 @@ const styles = {
     fontSize: '0.6rem',
     color: '#555',
     fontStyle: 'italic',
+  },
+  echoChamberSection: {
+    marginBottom: '4rem',
+    padding: '2rem 0',
+    borderTop: '1px solid #222',
+  },
+  echoChamberTitle: {
+    fontSize: '1.2rem',
+    color: '#bbb',
+    marginBottom: '0.5rem',
+    fontWeight: 300,
+    letterSpacing: '0.1em',
+  },
+  echoChamberDescription: {
+    fontSize: '0.7rem',
+    color: '#666',
+    marginBottom: '2rem',
+    fontStyle: 'italic',
+  },
+  emotionGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '0.8rem',
+    marginBottom: '2rem',
+    maxWidth: '400px',
+    margin: '0 auto 2rem',
+  },
+  emotionButton: {
+    background: 'transparent',
+    border: '1px solid',
+    padding: '0.8rem 0.5rem',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.05em',
+    textTransform: 'lowercase',
+    transition: 'all 0.3s ease',
+    borderRadius: '0px',
+  },
+  emotionBroadcast: {
+    marginBottom: '2rem',
+  },
+  broadcastButton: {
+    background: 'transparent',
+    border: '2px solid',
+    padding: '1rem 2rem',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.1em',
+    textTransform: 'lowercase',
+    transition: 'all 0.3s ease',
+  },
+  echoChamberStats: {
+    fontSize: '0.6rem',
+    color: '#555',
+    fontStyle: 'italic',
+  },
+  floatingEmotion: {
+    position: 'absolute',
+    fontSize: '0.8rem',
+    maxWidth: '120px',
+    pointerEvents: 'none',
+    transition: 'opacity 0.3s ease',
+    lineHeight: 1.2,
+    fontWeight: 'bold',
+    textTransform: 'lowercase',
+    letterSpacing: '0.05em',
   },
   whisper: {
     position: 'absolute',
