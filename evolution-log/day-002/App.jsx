@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
  * Day 1 — Added a "Digital Séance" feature where visitors can ask questions to the collective consciousness of all previous whispers, receiving mystical responses.
  * Day 2 — Added "Memory Palace" - a collaborative digital art canvas where visitors paint pixels that fade over time, creating ephemeral shared memories.
  * Day 2 — Added "Echo Chamber" - a live feed of human emotions where visitors choose and broadcast their current feeling, creating a real-time emotional landscape that pulses and flows across the interface.
+ * Day 2 — Added "Temporal Fragments" - a feature where visitors can send messages to future visitors with delivery dates, creating a time-capsule messaging system that bridges past and future interactions.
  */
 
 export default function App() {
@@ -31,10 +32,18 @@ export default function App() {
   const [selectedColor, setSelectedColor] = useState('#ff0000')
   const [isDrawing, setIsDrawing] = useState(false)
 
-  // Echo Chamber state - NEW FEATURE
+  // Echo Chamber state
   const [showEchoChamber, setShowEchoChamber] = useState(false)
   const [emotions, setEmotions] = useState([])
   const [selectedEmotion, setSelectedEmotion] = useState('')
+
+  // Temporal Fragments state - NEW FEATURE
+  const [showTemporalFragments, setShowTemporalFragments] = useState(false)
+  const [fragmentMessage, setFragmentMessage] = useState('')
+  const [fragmentDeliveryDays, setFragmentDeliveryDays] = useState(1)
+  const [pendingFragments, setPendingFragments] = useState([])
+  const [deliveredFragments, setDeliveredFragments] = useState([])
+  const [newlyDelivered, setNewlyDelivered] = useState([])
 
   const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#888888']
   
@@ -107,6 +116,21 @@ export default function App() {
         }
       })
       .catch(console.error)
+
+    // Load temporal fragments
+    fetch('/api/data?action=getTemporalFragments')
+      .then(res => res.json())
+      .then(data => {
+        if (data.pending) setPendingFragments(data.pending)
+        if (data.delivered) {
+          setDeliveredFragments(data.delivered)
+          // Mark newly delivered fragments (delivered in the last hour)
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+          const newDelivered = data.delivered.filter(f => new Date(f.delivered_at) > oneHourAgo)
+          setNewlyDelivered(newDelivered)
+        }
+      })
+      .catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -149,6 +173,21 @@ export default function App() {
       return () => clearInterval(interval)
     }
   }, [showEchoChamber])
+
+  // Animate temporal fragments floating
+  useEffect(() => {
+    if (showTemporalFragments && newlyDelivered.length > 0) {
+      const interval = setInterval(() => {
+        setNewlyDelivered(prev => prev.map(fragment => ({
+          ...fragment,
+          x: fragment.x || Math.random() * 80 + 10,
+          y: fragment.y || Math.random() * 60 + 20,
+          opacity: fragment.opacity || 0.8,
+        })))
+      }, 100)
+      return () => clearInterval(interval)
+    }
+  }, [showTemporalFragments, newlyDelivered])
 
   const submitWhisper = async () => {
     if (!whisperText.trim() || isSubmitting) return
@@ -279,6 +318,31 @@ export default function App() {
     }
   }
 
+  const sendTemporalFragment = async () => {
+    if (!fragmentMessage.trim()) return
+    
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'sendTemporalFragment', 
+          message: fragmentMessage.trim(),
+          delivery_days: fragmentDeliveryDays
+        })
+      })
+      const data = await response.json()
+      
+      if (data.fragment) {
+        setPendingFragments(prev => [...prev, data.fragment])
+        setFragmentMessage('')
+        setFragmentDeliveryDays(1)
+      }
+    } catch (error) {
+      console.error('Failed to send temporal fragment:', error)
+    }
+  }
+
   const renderCanvas = () => {
     const gridSize = 20
     const cells = []
@@ -307,6 +371,14 @@ export default function App() {
 
   const getEmotionConfig = (emotionName) => {
     return emotionTypes.find(e => e.name === emotionName) || emotionTypes[0]
+  }
+
+  const clearAllFeatures = () => {
+    setShowWhisperForm(false)
+    setShowSeance(false)
+    setShowMemoryPalace(false)
+    setShowEchoChamber(false)
+    setShowTemporalFragments(false)
   }
 
   return (
@@ -347,6 +419,21 @@ export default function App() {
         )
       })}
 
+      {/* Floating temporal fragments */}
+      {showTemporalFragments && newlyDelivered.map(fragment => (
+        <div
+          key={fragment.id}
+          style={{
+            ...styles.temporalFragment,
+            left: `${fragment.x || Math.random() * 80 + 10}%`,
+            top: `${fragment.y || Math.random() * 60 + 20}%`,
+            opacity: fragment.opacity || 0.8
+          }}
+        >
+          message from the past arrived
+        </div>
+      ))}
+
       <div style={styles.content}>
         <h1 style={styles.title}>FRANKENSTEIN</h1>
         <div style={{
@@ -365,25 +452,18 @@ export default function App() {
         {/* Feature selector */}
         <div style={styles.featureSelector}>
           <button
-            onClick={() => { 
-              setShowWhisperForm(false); 
-              setShowSeance(false); 
-              setShowMemoryPalace(false);
-              setShowEchoChamber(false);
-            }}
+            onClick={() => clearAllFeatures()}
             style={{
               ...styles.featureButton,
-              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber) ? 1 : 0.5
+              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber && !showTemporalFragments) ? 1 : 0.5
             }}
           >
             observe
           </button>
           <button
             onClick={() => { 
-              setShowWhisperForm(true); 
-              setShowSeance(false); 
-              setShowMemoryPalace(false);
-              setShowEchoChamber(false);
+              clearAllFeatures()
+              setShowWhisperForm(true)
             }}
             style={{
               ...styles.featureButton,
@@ -394,10 +474,8 @@ export default function App() {
           </button>
           <button
             onClick={() => { 
-              setShowSeance(true); 
-              setShowWhisperForm(false); 
-              setShowMemoryPalace(false);
-              setShowEchoChamber(false);
+              clearAllFeatures()
+              setShowSeance(true)
             }}
             style={{
               ...styles.featureButton,
@@ -408,10 +486,8 @@ export default function App() {
           </button>
           <button
             onClick={() => { 
-              setShowMemoryPalace(true); 
-              setShowWhisperForm(false); 
-              setShowSeance(false);
-              setShowEchoChamber(false);
+              clearAllFeatures()
+              setShowMemoryPalace(true)
             }}
             style={{
               ...styles.featureButton,
@@ -422,10 +498,8 @@ export default function App() {
           </button>
           <button
             onClick={() => { 
-              setShowEchoChamber(true);
-              setShowMemoryPalace(false); 
-              setShowWhisperForm(false); 
-              setShowSeance(false);
+              clearAllFeatures()
+              setShowEchoChamber(true)
             }}
             style={{
               ...styles.featureButton,
@@ -433,6 +507,18 @@ export default function App() {
             }}
           >
             echo
+          </button>
+          <button
+            onClick={() => { 
+              clearAllFeatures()
+              setShowTemporalFragments(true)
+            }}
+            style={{
+              ...styles.featureButton,
+              opacity: showTemporalFragments ? 1 : 0.5
+            }}
+          >
+            time
           </button>
         </div>
 
@@ -554,7 +640,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Echo Chamber feature - NEW */}
+        {/* Echo Chamber feature */}
         {showEchoChamber && (
           <div style={styles.echoChamberSection}>
             <h3 style={styles.echoChamberTitle}>Echo Chamber</h3>
@@ -598,6 +684,86 @@ export default function App() {
             <div style={styles.echoChamberStats}>
               {emotions.length} emotions flowing • {new Set(emotions.map(e => e.emotion)).size} unique feelings
             </div>
+          </div>
+        )}
+
+        {/* Temporal Fragments feature - NEW */}
+        {showTemporalFragments && (
+          <div style={styles.temporalFragmentsSection}>
+            <h3 style={styles.temporalFragmentsTitle}>Temporal Fragments</h3>
+            <p style={styles.temporalFragmentsDescription}>
+              Send a message to future visitors. Your words will arrive exactly when intended...
+            </p>
+            
+            <div style={styles.temporalForm}>
+              <textarea
+                value={fragmentMessage}
+                onChange={(e) => setFragmentMessage(e.target.value)}
+                placeholder="write a message for the future..."
+                style={styles.temporalInput}
+                maxLength={200}
+                rows={3}
+              />
+              
+              <div style={styles.temporalDelivery}>
+                <label style={styles.temporalLabel}>deliver in:</label>
+                <select
+                  value={fragmentDeliveryDays}
+                  onChange={(e) => setFragmentDeliveryDays(Number(e.target.value))}
+                  style={styles.temporalSelect}
+                >
+                  <option value={1}>1 day</option>
+                  <option value={3}>3 days</option>
+                  <option value={7}>1 week</option>
+                  <option value={30}>1 month</option>
+                  <option value={365}>1 year</option>
+                </select>
+              </div>
+
+              <button
+                onClick={sendTemporalFragment}
+                disabled={!fragmentMessage.trim()}
+                style={{
+                  ...styles.temporalSendButton,
+                  opacity: !fragmentMessage.trim() ? 0.5 : 1
+                }}
+              >
+                cast into time
+              </button>
+
+              <div style={styles.temporalCounter}>
+                {fragmentMessage.length}/200
+              </div>
+            </div>
+
+            <div style={styles.temporalStatus}>
+              <div style={styles.temporalStats}>
+                <div style={styles.temporalStat}>
+                  <span style={styles.temporalStatNumber}>{pendingFragments.length}</span>
+                  <span style={styles.temporalStatLabel}>traveling through time</span>
+                </div>
+                <div style={styles.temporalStat}>
+                  <span style={styles.temporalStatNumber}>{deliveredFragments.length}</span>
+                  <span style={styles.temporalStatLabel}>messages delivered</span>
+                </div>
+              </div>
+            </div>
+
+            {deliveredFragments.length > 0 && (
+              <div style={styles.deliveredFragments}>
+                <h4 style={styles.deliveredFragmentsTitle}>Messages from the Past</h4>
+                {deliveredFragments.slice(0, 3).map(fragment => (
+                  <div key={fragment.id} style={styles.deliveredFragment}>
+                    <div style={styles.deliveredFragmentText}>
+                      "{fragment.message}"
+                    </div>
+                    <div style={styles.deliveredFragmentTime}>
+                      sent {Math.ceil((new Date(fragment.delivered_at) - new Date(fragment.created_at)) / (1000 * 60 * 60 * 24))} days ago
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -666,6 +832,7 @@ const styles = {
     justifyContent: 'center',
     gap: '1rem',
     marginBottom: '2rem',
+    flexWrap: 'wrap',
   },
   featureButton: {
     background: 'transparent',
@@ -916,6 +1083,131 @@ const styles = {
     color: '#555',
     fontStyle: 'italic',
   },
+  temporalFragmentsSection: {
+    marginBottom: '4rem',
+    padding: '2rem 0',
+    borderTop: '1px solid #222',
+  },
+  temporalFragmentsTitle: {
+    fontSize: '1.2rem',
+    color: '#bbb',
+    marginBottom: '0.5rem',
+    fontWeight: 300,
+    letterSpacing: '0.1em',
+  },
+  temporalFragmentsDescription: {
+    fontSize: '0.7rem',
+    color: '#666',
+    marginBottom: '2rem',
+    fontStyle: 'italic',
+  },
+  temporalForm: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    alignItems: 'center',
+    marginBottom: '2rem',
+  },
+  temporalInput: {
+    background: 'transparent',
+    border: '1px solid #333',
+    color: '#e0e0e0',
+    padding: '1rem',
+    width: '100%',
+    maxWidth: '400px',
+    fontSize: '0.8rem',
+    fontFamily: 'inherit',
+    resize: 'none',
+    outline: 'none',
+  },
+  temporalDelivery: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  temporalLabel: {
+    fontSize: '0.7rem',
+    color: '#888',
+  },
+  temporalSelect: {
+    background: 'transparent',
+    border: '1px solid #444',
+    color: '#e0e0e0',
+    padding: '0.5rem',
+    fontSize: '0.7rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+  },
+  temporalSendButton: {
+    background: 'transparent',
+    border: '1px solid #666',
+    color: '#ccc',
+    padding: '0.8rem 1.5rem',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.1em',
+    textTransform: 'lowercase',
+  },
+  temporalCounter: {
+    fontSize: '0.6rem',
+    color: '#555',
+  },
+  temporalStatus: {
+    marginBottom: '2rem',
+  },
+  temporalStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '2rem',
+  },
+  temporalStat: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.3rem',
+  },
+  temporalStatNumber: {
+    fontSize: '1.5rem',
+    color: '#bbb',
+    fontWeight: '300',
+  },
+  temporalStatLabel: {
+    fontSize: '0.6rem',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+  },
+  deliveredFragments: {
+    marginTop: '2rem',
+    padding: '1rem 0',
+    borderTop: '1px solid #222',
+  },
+  deliveredFragmentsTitle: {
+    fontSize: '0.8rem',
+    color: '#777',
+    marginBottom: '1rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontWeight: 300,
+  },
+  deliveredFragment: {
+    marginBottom: '1rem',
+    padding: '1rem',
+    border: '1px solid #222',
+    background: 'rgba(255,255,255,0.01)',
+  },
+  deliveredFragmentText: {
+    fontSize: '0.8rem',
+    color: '#ddd',
+    marginBottom: '0.5rem',
+    fontStyle: 'italic',
+    lineHeight: 1.4,
+  },
+  deliveredFragmentTime: {
+    fontSize: '0.6rem',
+    color: '#666',
+  },
   floatingEmotion: {
     position: 'absolute',
     fontSize: '0.8rem',
@@ -926,6 +1218,17 @@ const styles = {
     fontWeight: 'bold',
     textTransform: 'lowercase',
     letterSpacing: '0.05em',
+  },
+  temporalFragment: {
+    position: 'absolute',
+    fontSize: '0.6rem',
+    color: '#9d4edd',
+    maxWidth: '180px',
+    pointerEvents: 'none',
+    transition: 'opacity 0.1s ease',
+    lineHeight: 1.4,
+    textShadow: '0 0 10px rgba(157,78,221,0.5)',
+    fontStyle: 'italic',
   },
   whisper: {
     position: 'absolute',

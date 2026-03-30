@@ -46,5 +46,17 @@
       "api": true,
       "schema": true
     }
+  },
+  {
+    "day": 2,
+    "timestamp": "2026-03-30T18:41:24.639Z",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "changelog": "Added \"Temporal Fragments\" feature that allows visitors to send messages to future visitors with scheduled delivery dates, creating a time-capsule messaging system that bridges past and future interactions with floating notifications for newly delivered messages.",
+    "filesChanged": {
+      "app": true,
+      "api": true,
+      "schema": true
+    }
   }
 ]

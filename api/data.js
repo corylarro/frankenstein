@@ -9,6 +9,7 @@ import { neon } from '@neondatabase/serverless';
  * Day 2 — Added séance endpoint that creates mystical responses by analyzing existing whispers.
  * Day 2 — Added Memory Palace canvas endpoints for collaborative pixel art that fades over time.
  * Day 2 — Added Echo Chamber endpoints to broadcast and retrieve emotional states in real-time.
+ * Day 2 — Added Temporal Fragments endpoints to send messages to future visitors with delayed delivery.
  *
  * ROUTING: All requests come through this single function.
  * Use the URL pathname and method to route:
@@ -250,13 +251,85 @@ export default async function handler(req, res) {
         return res.status(200).json({ emotions: result });
       }
 
+      // --- Day 2: Send a temporal fragment ---
+      case 'sendTemporalFragment': {
+        const { message, delivery_days } = req.body;
+        
+        if (!message || message.trim().length === 0) {
+          return res.status(400).json({ error: 'Message is required' });
+        }
+        
+        if (message.length > 200) {
+          return res.status(400).json({ error: 'Message too long' });
+        }
+
+        const validDeliveryDays = [1, 3, 7, 30, 365];
+        if (!validDeliveryDays.includes(delivery_days)) {
+          return res.status(400).json({ error: 'Invalid delivery time' });
+        }
+
+        // Calculate delivery date
+        const deliverAt = new Date();
+        deliverAt.setDate(deliverAt.getDate() + delivery_days);
+
+        const result = await sql`
+          INSERT INTO temporal_fragments (message, deliver_at) 
+          VALUES (${message.trim()}, ${deliverAt.toISOString()}) 
+          RETURNING id, message, deliver_at, created_at
+        `;
+        
+        return res.status(200).json({ fragment: result[0] });
+      }
+
+      // --- Day 2: Get temporal fragments (pending and delivered) ---
+      case 'getTemporalFragments': {
+        // Get pending fragments (not yet delivered)
+        const pending = await sql`
+          SELECT id, message, deliver_at, created_at
+          FROM temporal_fragments 
+          WHERE deliver_at > NOW() 
+          ORDER BY deliver_at ASC
+          LIMIT 20
+        `;
+
+        // Get recently delivered fragments and mark them as delivered
+        const delivered = await sql`
+          SELECT id, message, deliver_at, created_at, 
+                 CASE WHEN delivered_at IS NULL THEN NOW() ELSE delivered_at END as delivered_at
+          FROM temporal_fragments 
+          WHERE deliver_at <= NOW() 
+          ORDER BY deliver_at DESC
+          LIMIT 10
+        `;
+
+        // Mark newly delivered fragments
+        if (delivered.length > 0) {
+          const deliveredIds = delivered.filter(f => !f.delivered_at || f.delivered_at === f.created_at).map(f => f.id);
+          if (deliveredIds.length > 0) {
+            await sql`
+              UPDATE temporal_fragments 
+              SET delivered_at = NOW() 
+              WHERE id = ANY(${deliveredIds}) AND delivered_at IS NULL
+            `;
+          }
+        }
+
+        return res.status(200).json({ 
+          pending, 
+          delivered: delivered.map(f => ({
+            ...f,
+            delivered_at: f.delivered_at || new Date()
+          }))
+        });
+      }
+
       default:
         return res.status(400).json({
           error: 'Unknown action',
           available: [
             'heartbeat', 'schema', 'addWhisper', 'getWhispers', 
             'performSeance', 'getSeances', 'paintPixel', 'getCanvas',
-            'broadcastEmotion', 'getEmotions'
+            'broadcastEmotion', 'getEmotions', 'sendTemporalFragment', 'getTemporalFragments'
           ],
         });
     }

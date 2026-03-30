@@ -6,6 +6,7 @@
 -- Day 2 — Added seances table to store mystical Q&A sessions with the collective consciousness.
 -- Day 2 — Added canvas_pixels table for the Memory Palace collaborative art feature.
 -- Day 2 — Added emotions table for the Echo Chamber real-time emotional broadcasting system.
+-- Day 2 — Added temporal_fragments table for sending messages to future visitors with delayed delivery.
 --
 -- RULES FOR THE AI:
 -- - Always use IF NOT EXISTS when creating tables
@@ -44,5 +45,14 @@ CREATE TABLE IF NOT EXISTS emotions (
     'euphoric', 'melancholic', 'anxious', 'peaceful',
     'restless', 'curious', 'nostalgic', 'electric'
   )),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Day 2: Temporal Fragments - messages sent to the future
+CREATE TABLE IF NOT EXISTS temporal_fragments (
+  id SERIAL PRIMARY KEY,
+  message TEXT NOT NULL CHECK (LENGTH(message) <= 200 AND LENGTH(TRIM(message)) > 0),
+  deliver_at TIMESTAMPTZ NOT NULL,
+  delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
