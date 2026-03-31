@@ -7,6 +7,7 @@
 -- Day 2 — Added canvas_pixels table for the Memory Palace collaborative art feature.
 -- Day 2 — Added emotions table for the Echo Chamber real-time emotional broadcasting system.
 -- Day 2 — Added temporal_fragments table for sending messages to future visitors with delayed delivery.
+-- Day 2 — Added neural_nodes and neural_connections tables for the Neural Web collaborative consciousness network.
 --
 -- RULES FOR THE AI:
 -- - Always use IF NOT EXISTS when creating tables
@@ -55,4 +56,22 @@ CREATE TABLE IF NOT EXISTS temporal_fragments (
   deliver_at TIMESTAMPTZ NOT NULL,
   delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Day 2: Neural Web - nodes in the collective consciousness network
+CREATE TABLE IF NOT EXISTS neural_nodes (
+  id SERIAL PRIMARY KEY,
+  message TEXT NOT NULL CHECK (LENGTH(message) <= 50 AND LENGTH(TRIM(message)) > 0),
+  x REAL,
+  y REAL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Day 2: Neural Web - connections between consciousness nodes
+CREATE TABLE IF NOT EXISTS neural_connections (
+  id SERIAL PRIMARY KEY,
+  from_node_id INTEGER NOT NULL,
+  to_node_id INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(from_node_id, to_node_id)
 );

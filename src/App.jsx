@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
  * Day 2 — Added "Memory Palace" - a collaborative digital art canvas where visitors paint pixels that fade over time, creating ephemeral shared memories.
  * Day 2 — Added "Echo Chamber" - a live feed of human emotions where visitors choose and broadcast their current feeling, creating a real-time emotional landscape that pulses and flows across the interface.
  * Day 2 — Added "Temporal Fragments" - a feature where visitors can send messages to future visitors with delivery dates, creating a time-capsule messaging system that bridges past and future interactions.
+ * Day 2 — Added "Neural Web" - a collaborative network visualization where each visitor becomes a node that can connect to others, forming a living web of digital consciousness that pulses and evolves as connections are made.
  */
 
 export default function App() {
@@ -37,13 +38,21 @@ export default function App() {
   const [emotions, setEmotions] = useState([])
   const [selectedEmotion, setSelectedEmotion] = useState('')
 
-  // Temporal Fragments state - NEW FEATURE
+  // Temporal Fragments state
   const [showTemporalFragments, setShowTemporalFragments] = useState(false)
   const [fragmentMessage, setFragmentMessage] = useState('')
   const [fragmentDeliveryDays, setFragmentDeliveryDays] = useState(1)
   const [pendingFragments, setPendingFragments] = useState([])
   const [deliveredFragments, setDeliveredFragments] = useState([])
   const [newlyDelivered, setNewlyDelivered] = useState([])
+
+  // Neural Web state - NEW FEATURE
+  const [showNeuralWeb, setShowNeuralWeb] = useState(false)
+  const [nodes, setNodes] = useState([])
+  const [connections, setConnections] = useState([])
+  const [myNodeId, setMyNodeId] = useState(null)
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [nodeMessage, setNodeMessage] = useState('')
 
   const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#888888']
   
@@ -131,6 +140,25 @@ export default function App() {
         }
       })
       .catch(console.error)
+
+    // Load neural web
+    fetch('/api/data?action=getNeuralWeb')
+      .then(res => res.json())
+      .then(data => {
+        if (data.nodes) {
+          setNodes(data.nodes.map(node => ({
+            ...node,
+            x: node.x || Math.random() * 300 + 50,
+            y: node.y || Math.random() * 200 + 50,
+            pulse: Math.random() * 3000,
+            drift: (Math.random() - 0.5) * 0.2
+          })))
+        }
+        if (data.connections) {
+          setConnections(data.connections)
+        }
+      })
+      .catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -188,6 +216,22 @@ export default function App() {
       return () => clearInterval(interval)
     }
   }, [showTemporalFragments, newlyDelivered])
+
+  // Animate neural web nodes
+  useEffect(() => {
+    if (showNeuralWeb) {
+      const interval = setInterval(() => {
+        setNodes(prev => prev.map(node => ({
+          ...node,
+          x: Math.max(20, Math.min(380, node.x + node.drift)),
+          y: Math.max(20, Math.min(280, node.y + Math.sin(Date.now() * 0.001 + node.id) * 0.1)),
+          scale: 0.8 + Math.sin(Date.now() * 0.002 + node.pulse) * 0.3,
+          opacity: 0.6 + Math.sin(Date.now() * 0.0015 + node.id) * 0.4
+        })))
+      }, 50)
+      return () => clearInterval(interval)
+    }
+  }, [showNeuralWeb])
 
   const submitWhisper = async () => {
     if (!whisperText.trim() || isSubmitting) return
@@ -343,6 +387,63 @@ export default function App() {
     }
   }
 
+  const joinNeuralWeb = async () => {
+    if (!nodeMessage.trim()) return
+    
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'joinNeuralWeb', 
+          message: nodeMessage.trim()
+        })
+      })
+      const data = await response.json()
+      
+      if (data.node) {
+        const newNode = {
+          ...data.node,
+          x: Math.random() * 300 + 50,
+          y: Math.random() * 200 + 50,
+          pulse: Math.random() * 3000,
+          drift: (Math.random() - 0.5) * 0.2,
+          scale: 1,
+          opacity: 1
+        }
+        setNodes(prev => [...prev, newNode])
+        setMyNodeId(data.node.id)
+        setNodeMessage('')
+      }
+    } catch (error) {
+      console.error('Failed to join neural web:', error)
+    }
+  }
+
+  const connectToNode = async (targetNodeId) => {
+    if (!myNodeId || targetNodeId === myNodeId) return
+    
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'connectNodes', 
+          from_node_id: myNodeId,
+          to_node_id: targetNodeId
+        })
+      })
+      const data = await response.json()
+      
+      if (data.connection) {
+        setConnections(prev => [...prev, data.connection])
+        setSelectedNodeId(null)
+      }
+    } catch (error) {
+      console.error('Failed to connect nodes:', error)
+    }
+  }
+
   const renderCanvas = () => {
     const gridSize = 20
     const cells = []
@@ -369,6 +470,62 @@ export default function App() {
     return cells
   }
 
+  const renderNeuralWeb = () => {
+    return (
+      <svg width="400" height="300" style={styles.neuralWebSvg}>
+        {/* Render connections */}
+        {connections.map(connection => {
+          const fromNode = nodes.find(n => n.id === connection.from_node_id)
+          const toNode = nodes.find(n => n.id === connection.to_node_id)
+          if (!fromNode || !toNode) return null
+          
+          return (
+            <line
+              key={connection.id}
+              x1={fromNode.x}
+              y1={fromNode.y}
+              x2={toNode.x}
+              y2={toNode.y}
+              stroke="#444"
+              strokeWidth="1"
+              opacity="0.6"
+              style={{
+                filter: `drop-shadow(0 0 ${Math.sin(Date.now() * 0.003 + connection.id) * 5 + 5}px #00ff4120)`
+              }}
+            />
+          )
+        })}
+        
+        {/* Render nodes */}
+        {nodes.map(node => (
+          <circle
+            key={node.id}
+            cx={node.x}
+            cy={node.y}
+            r={8 * (node.scale || 1)}
+            fill={node.id === myNodeId ? '#00ff41' : '#666'}
+            opacity={node.opacity || 0.8}
+            stroke={selectedNodeId === node.id ? '#fff' : 'none'}
+            strokeWidth="2"
+            style={{ 
+              cursor: 'pointer',
+              filter: `drop-shadow(0 0 ${Math.sin(Date.now() * 0.002 + (node.pulse || 0)) * 10 + 10}px ${node.id === myNodeId ? '#00ff41' : '#666'}40)`
+            }}
+            onClick={() => {
+              if (myNodeId && node.id !== myNodeId) {
+                if (selectedNodeId === node.id) {
+                  connectToNode(node.id)
+                } else {
+                  setSelectedNodeId(node.id)
+                }
+              }
+            }}
+          />
+        ))}
+      </svg>
+    )
+  }
+
   const getEmotionConfig = (emotionName) => {
     return emotionTypes.find(e => e.name === emotionName) || emotionTypes[0]
   }
@@ -379,6 +536,7 @@ export default function App() {
     setShowMemoryPalace(false)
     setShowEchoChamber(false)
     setShowTemporalFragments(false)
+    setShowNeuralWeb(false)
   }
 
   return (
@@ -442,7 +600,7 @@ export default function App() {
         }}>
           ●
         </div>
-        <p style={styles.subtitle}>Day 2</p>
+        <p style={styles.subtitle}>Day 3</p>
         <p style={styles.description}>
           A self-building web application.<br />
           No human guidance. No instructions. No rules.<br />
@@ -455,7 +613,7 @@ export default function App() {
             onClick={() => clearAllFeatures()}
             style={{
               ...styles.featureButton,
-              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber && !showTemporalFragments) ? 1 : 0.5
+              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber && !showTemporalFragments && !showNeuralWeb) ? 1 : 0.5
             }}
           >
             observe
@@ -519,6 +677,18 @@ export default function App() {
             }}
           >
             time
+          </button>
+          <button
+            onClick={() => { 
+              clearAllFeatures()
+              setShowNeuralWeb(true)
+            }}
+            style={{
+              ...styles.featureButton,
+              opacity: showNeuralWeb ? 1 : 0.5
+            }}
+          >
+            neural
           </button>
         </div>
 
@@ -687,7 +857,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Temporal Fragments feature - NEW */}
+        {/* Temporal Fragments feature */}
         {showTemporalFragments && (
           <div style={styles.temporalFragmentsSection}>
             <h3 style={styles.temporalFragmentsTitle}>Temporal Fragments</h3>
@@ -767,6 +937,87 @@ export default function App() {
           </div>
         )}
 
+        {/* Neural Web feature - NEW */}
+        {showNeuralWeb && (
+          <div style={styles.neuralWebSection}>
+            <h3 style={styles.neuralWebTitle}>Neural Web</h3>
+            <p style={styles.neuralWebDescription}>
+              Join the living network of consciousness. Become a node and connect to others...
+            </p>
+            
+            {!myNodeId ? (
+              <div style={styles.neuralWebJoin}>
+                <input
+                  type="text"
+                  value={nodeMessage}
+                  onChange={(e) => setNodeMessage(e.target.value)}
+                  placeholder="what defines your node in the web?"
+                  style={styles.neuralWebInput}
+                  maxLength={50}
+                />
+                <button
+                  onClick={joinNeuralWeb}
+                  disabled={!nodeMessage.trim()}
+                  style={{
+                    ...styles.neuralWebJoinButton,
+                    opacity: !nodeMessage.trim() ? 0.5 : 1
+                  }}
+                >
+                  enter the web
+                </button>
+                <div style={styles.neuralWebCounter}>
+                  {nodeMessage.length}/50
+                </div>
+              </div>
+            ) : (
+              <div style={styles.neuralWebConnected}>
+                <div style={styles.neuralWebStatus}>
+                  You are now part of the neural web • Click other nodes to connect
+                </div>
+                {selectedNodeId && (
+                  <div style={styles.neuralWebConnectPrompt}>
+                    Click the selected node again to form a connection
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={styles.neuralWebVisualization}>
+              {renderNeuralWeb()}
+            </div>
+
+            <div style={styles.neuralWebStats}>
+              <div style={styles.neuralWebStat}>
+                <span style={styles.neuralWebStatNumber}>{nodes.length}</span>
+                <span style={styles.neuralWebStatLabel}>active nodes</span>
+              </div>
+              <div style={styles.neuralWebStat}>
+                <span style={styles.neuralWebStatNumber}>{connections.length}</span>
+                <span style={styles.neuralWebStatLabel}>neural connections</span>
+              </div>
+            </div>
+
+            {nodes.length > 0 && (
+              <div style={styles.neuralWebNodes}>
+                <h4 style={styles.neuralWebNodesTitle}>Active Consciousness</h4>
+                <div style={styles.neuralWebNodesList}>
+                  {nodes.slice(0, 5).map(node => (
+                    <div 
+                      key={node.id} 
+                      style={{
+                        ...styles.neuralWebNodeItem,
+                        color: node.id === myNodeId ? '#00ff41' : '#888'
+                      }}
+                    >
+                      {node.message}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={styles.footer}>
           <span style={styles.footerText}>frankenstein.today</span>
           <span style={styles.footerDivider}>·</span>
@@ -830,7 +1081,7 @@ const styles = {
   featureSelector: {
     display: 'flex',
     justifyContent: 'center',
-    gap: '1rem',
+    gap: '0.8rem',
     marginBottom: '2rem',
     flexWrap: 'wrap',
   },
@@ -1207,6 +1458,130 @@ const styles = {
   deliveredFragmentTime: {
     fontSize: '0.6rem',
     color: '#666',
+  },
+  neuralWebSection: {
+    marginBottom: '4rem',
+    padding: '2rem 0',
+    borderTop: '1px solid #222',
+  },
+  neuralWebTitle: {
+    fontSize: '1.2rem',
+    color: '#bbb',
+    marginBottom: '0.5rem',
+    fontWeight: 300,
+    letterSpacing: '0.1em',
+  },
+  neuralWebDescription: {
+    fontSize: '0.7rem',
+    color: '#666',
+    marginBottom: '2rem',
+    fontStyle: 'italic',
+  },
+  neuralWebJoin: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    alignItems: 'center',
+    marginBottom: '2rem',
+  },
+  neuralWebInput: {
+    background: 'transparent',
+    border: '1px solid #333',
+    color: '#e0e0e0',
+    padding: '0.8rem',
+    width: '100%',
+    maxWidth: '350px',
+    fontSize: '0.8rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+    textAlign: 'center',
+  },
+  neuralWebJoinButton: {
+    background: 'transparent',
+    border: '1px solid #00ff41',
+    color: '#00ff41',
+    padding: '0.8rem 1.5rem',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.1em',
+    textTransform: 'lowercase',
+    boxShadow: '0 0 10px rgba(0,255,65,0.2)',
+  },
+  neuralWebCounter: {
+    fontSize: '0.6rem',
+    color: '#555',
+  },
+  neuralWebConnected: {
+    marginBottom: '2rem',
+    textAlign: 'center',
+  },
+  neuralWebStatus: {
+    fontSize: '0.7rem',
+    color: '#00ff41',
+    marginBottom: '0.5rem',
+  },
+  neuralWebConnectPrompt: {
+    fontSize: '0.6rem',
+    color: '#888',
+    fontStyle: 'italic',
+  },
+  neuralWebVisualization: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '2rem',
+  },
+  neuralWebSvg: {
+    border: '1px solid #333',
+    background: 'rgba(0,0,0,0.3)',
+  },
+  neuralWebStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '2rem',
+    marginBottom: '2rem',
+  },
+  neuralWebStat: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.3rem',
+  },
+  neuralWebStatNumber: {
+    fontSize: '1.5rem',
+    color: '#00ff41',
+    fontWeight: '300',
+  },
+  neuralWebStatLabel: {
+    fontSize: '0.6rem',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+  },
+  neuralWebNodes: {
+    marginTop: '2rem',
+    padding: '1rem 0',
+    borderTop: '1px solid #222',
+  },
+  neuralWebNodesTitle: {
+    fontSize: '0.8rem',
+    color: '#777',
+    marginBottom: '1rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontWeight: 300,
+  },
+  neuralWebNodesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  neuralWebNodeItem: {
+    fontSize: '0.7rem',
+    padding: '0.5rem',
+    border: '1px solid #222',
+    background: 'rgba(255,255,255,0.01)',
+    textAlign: 'left',
   },
   floatingEmotion: {
     position: 'absolute',

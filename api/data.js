@@ -10,6 +10,7 @@ import { neon } from '@neondatabase/serverless';
  * Day 2 — Added Memory Palace canvas endpoints for collaborative pixel art that fades over time.
  * Day 2 — Added Echo Chamber endpoints to broadcast and retrieve emotional states in real-time.
  * Day 2 — Added Temporal Fragments endpoints to send messages to future visitors with delayed delivery.
+ * Day 2 — Added Neural Web endpoints to create nodes and connections in a collaborative consciousness network.
  *
  * ROUTING: All requests come through this single function.
  * Use the URL pathname and method to route:
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           alive: true,
           time: result[0].time,
-          day: 2,
+          day: 3,
           season: 1,
         });
       }
@@ -323,13 +324,107 @@ export default async function handler(req, res) {
         });
       }
 
+      // --- Day 2: Join the neural web as a new node ---
+      case 'joinNeuralWeb': {
+        const { message } = req.body;
+        
+        if (!message || message.trim().length === 0) {
+          return res.status(400).json({ error: 'Node message is required' });
+        }
+        
+        if (message.length > 50) {
+          return res.status(400).json({ error: 'Node message too long' });
+        }
+
+        const result = await sql`
+          INSERT INTO neural_nodes (message) 
+          VALUES (${message.trim()}) 
+          RETURNING id, message, created_at
+        `;
+        
+        return res.status(200).json({ node: result[0] });
+      }
+
+      // --- Day 2: Connect two nodes in the neural web ---
+      case 'connectNodes': {
+        const { from_node_id, to_node_id } = req.body;
+        
+        if (!from_node_id || !to_node_id) {
+          return res.status(400).json({ error: 'Both node IDs are required' });
+        }
+        
+        if (from_node_id === to_node_id) {
+          return res.status(400).json({ error: 'Cannot connect a node to itself' });
+        }
+
+        // Check if connection already exists (in either direction)
+        const existing = await sql`
+          SELECT id FROM neural_connections 
+          WHERE (from_node_id = ${from_node_id} AND to_node_id = ${to_node_id})
+             OR (from_node_id = ${to_node_id} AND to_node_id = ${from_node_id})
+          LIMIT 1
+        `;
+
+        if (existing.length > 0) {
+          return res.status(400).json({ error: 'Connection already exists' });
+        }
+
+        // Verify both nodes exist
+        const nodes = await sql`
+          SELECT id FROM neural_nodes 
+          WHERE id IN (${from_node_id}, ${to_node_id})
+        `;
+
+        if (nodes.length !== 2) {
+          return res.status(400).json({ error: 'One or both nodes do not exist' });
+        }
+
+        const result = await sql`
+          INSERT INTO neural_connections (from_node_id, to_node_id) 
+          VALUES (${from_node_id}, ${to_node_id}) 
+          RETURNING id, from_node_id, to_node_id, created_at
+        `;
+        
+        return res.status(200).json({ connection: result[0] });
+      }
+
+      // --- Day 2: Get neural web nodes and connections ---
+      case 'getNeuralWeb': {
+        // Get recent active nodes (last 30 minutes)
+        const nodes = await sql`
+          SELECT id, message, created_at
+          FROM neural_nodes 
+          WHERE created_at > NOW() - INTERVAL '30 minutes'
+          ORDER BY created_at DESC
+          LIMIT 20
+        `;
+
+        // Get connections between active nodes
+        const nodeIds = nodes.map(n => n.id);
+        let connections = [];
+        
+        if (nodeIds.length > 0) {
+          connections = await sql`
+            SELECT id, from_node_id, to_node_id, created_at
+            FROM neural_connections 
+            WHERE from_node_id = ANY(${nodeIds}) 
+              AND to_node_id = ANY(${nodeIds})
+            ORDER BY created_at DESC
+            LIMIT 50
+          `;
+        }
+
+        return res.status(200).json({ nodes, connections });
+      }
+
       default:
         return res.status(400).json({
           error: 'Unknown action',
           available: [
             'heartbeat', 'schema', 'addWhisper', 'getWhispers', 
             'performSeance', 'getSeances', 'paintPixel', 'getCanvas',
-            'broadcastEmotion', 'getEmotions', 'sendTemporalFragment', 'getTemporalFragments'
+            'broadcastEmotion', 'getEmotions', 'sendTemporalFragment', 'getTemporalFragments',
+            'joinNeuralWeb', 'connectNodes', 'getNeuralWeb'
           ],
         });
     }
