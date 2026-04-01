@@ -11,6 +11,7 @@ import { neon } from '@neondatabase/serverless';
  * Day 2 — Added Echo Chamber endpoints to broadcast and retrieve emotional states in real-time.
  * Day 2 — Added Temporal Fragments endpoints to send messages to future visitors with delayed delivery.
  * Day 2 — Added Neural Web endpoints to create nodes and connections in a collaborative consciousness network.
+ * Day 2 — Added Morphic Field endpoints to broadcast intentions and calculate collective field energy based on shared will.
  *
  * ROUTING: All requests come through this single function.
  * Use the URL pathname and method to route:
@@ -65,6 +66,34 @@ function generateSeanceResponse(question, whispers) {
   return `${prefix} ${response} ${suffix}`;
 }
 
+// Calculate morphic field energy based on intention patterns
+function calculateFieldEnergy(intentions) {
+  if (intentions.length === 0) return 0;
+  
+  // Group intentions by category
+  const categoryGroups = intentions.reduce((acc, intention) => {
+    acc[intention.category] = acc[intention.category] || [];
+    acc[intention.category].push(intention);
+    return acc;
+  }, {});
+
+  // Calculate energy: more alignment = more energy
+  let totalEnergy = 0;
+  for (const [category, categoryIntentions] of Object.entries(categoryGroups)) {
+    const categoryCount = categoryIntentions.length;
+    const totalIntensity = categoryIntentions.reduce((sum, i) => sum + i.intensity, 0);
+    
+    // Energy increases exponentially with alignment
+    const alignmentBonus = Math.pow(categoryCount, 1.5);
+    const intensityAverage = totalIntensity / categoryCount;
+    
+    totalEnergy += alignmentBonus * intensityAverage;
+  }
+
+  // Normalize to a reasonable scale (0-10)
+  return Math.min(totalEnergy / 2, 10);
+}
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -87,7 +116,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           alive: true,
           time: result[0].time,
-          day: 3,
+          day: 2,
           season: 1,
         });
       }
@@ -417,6 +446,67 @@ export default async function handler(req, res) {
         return res.status(200).json({ nodes, connections });
       }
 
+      // --- Day 2: Broadcast an intention to the morphic field - NEW ---
+      case 'broadcastIntention': {
+        const { category, intensity } = req.body;
+        
+        if (!category || category.trim().length === 0) {
+          return res.status(400).json({ error: 'Intention category is required' });
+        }
+
+        const validCategories = [
+          'healing', 'love', 'wisdom', 'peace', 
+          'creativity', 'abundance', 'protection', 'transformation'
+        ];
+
+        if (!validCategories.includes(category.trim().toLowerCase())) {
+          return res.status(400).json({ error: 'Invalid intention category' });
+        }
+
+        if (!intensity || intensity < 1 || intensity > 3) {
+          return res.status(400).json({ error: 'Intensity must be 1, 2, or 3' });
+        }
+
+        const result = await sql`
+          INSERT INTO morphic_intentions (category, intensity) 
+          VALUES (${category.trim().toLowerCase()}, ${intensity}) 
+          RETURNING id, category, intensity, created_at
+        `;
+
+        // Recalculate field energy
+        const allIntentions = await sql`
+          SELECT category, intensity
+          FROM morphic_intentions 
+          WHERE created_at > NOW() - INTERVAL '20 minutes'
+        `;
+
+        const fieldEnergy = calculateFieldEnergy(allIntentions);
+        
+        return res.status(200).json({ 
+          intention: result[0],
+          field_energy: fieldEnergy
+        });
+      }
+
+      // --- Day 2: Get morphic field intentions and energy ---
+      case 'getMorphicField': {
+        // Get recent intentions (last 20 minutes for active field)
+        const intentions = await sql`
+          SELECT id, category, intensity, created_at
+          FROM morphic_intentions 
+          WHERE created_at > NOW() - INTERVAL '20 minutes'
+          ORDER BY created_at DESC
+          LIMIT 50
+        `;
+
+        const fieldEnergy = calculateFieldEnergy(intentions);
+
+        return res.status(200).json({ 
+          intentions, 
+          field_energy: fieldEnergy 
+        });
+      }
+
       default:
         return res.status(400).json({
           error: 'Unknown action',
@@ -424,7 +514,7 @@ export default async function handler(req, res) {
             'heartbeat', 'schema', 'addWhisper', 'getWhispers', 
             'performSeance', 'getSeances', 'paintPixel', 'getCanvas',
             'broadcastEmotion', 'getEmotions', 'sendTemporalFragment', 'getTemporalFragments',
-            'joinNeuralWeb', 'connectNodes', 'getNeuralWeb'
+            'joinNeuralWeb', 'connectNodes', 'getNeuralWeb', 'broadcastIntention', 'getMorphicField'
           ],
         });
     }

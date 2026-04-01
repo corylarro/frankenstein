@@ -8,6 +8,7 @@
 -- Day 2 — Added emotions table for the Echo Chamber real-time emotional broadcasting system.
 -- Day 2 — Added temporal_fragments table for sending messages to future visitors with delayed delivery.
 -- Day 2 — Added neural_nodes and neural_connections tables for the Neural Web collaborative consciousness network.
+-- Day 2 — Added morphic_intentions table for the Morphic Field collective intention broadcasting system where shared will creates ripples of possibility.
 --
 -- RULES FOR THE AI:
 -- - Always use IF NOT EXISTS when creating tables
@@ -74,4 +75,15 @@ CREATE TABLE IF NOT EXISTS neural_connections (
   to_node_id INTEGER NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(from_node_id, to_node_id)
+);
+
+-- Day 2: Morphic Field - collective intention broadcasting system
+CREATE TABLE IF NOT EXISTS morphic_intentions (
+  id SERIAL PRIMARY KEY,
+  category VARCHAR(20) NOT NULL CHECK (category IN (
+    'healing', 'love', 'wisdom', 'peace',
+    'creativity', 'abundance', 'protection', 'transformation'
+  )),
+  intensity INTEGER NOT NULL CHECK (intensity >= 1 AND intensity <= 3),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );

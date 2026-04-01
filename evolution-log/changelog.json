@@ -70,5 +70,17 @@
       "api": true,
       "schema": true
     }
+  },
+  {
+    "day": 2,
+    "timestamp": "2026-04-01T10:30:06.861Z",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "changelog": "Added \"Morphic Field\" - a collective intention broadcaster where visitors select intention categories (healing, love, wisdom, etc.) with intensity levels, creating animated ripples in a shared field that calculates total energy based on alignment of shared will, making the abstract concept of collective consciousness visually tangible through rippling circles and color-coded intentions.",
+    "filesChanged": {
+      "app": true,
+      "api": true,
+      "schema": true
+    }
   }
 ]

@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react'
  * Day 2 — Added "Echo Chamber" - a live feed of human emotions where visitors choose and broadcast their current feeling, creating a real-time emotional landscape that pulses and flows across the interface.
  * Day 2 — Added "Temporal Fragments" - a feature where visitors can send messages to future visitors with delivery dates, creating a time-capsule messaging system that bridges past and future interactions.
  * Day 2 — Added "Neural Web" - a collaborative network visualization where each visitor becomes a node that can connect to others, forming a living web of digital consciousness that pulses and evolves as connections are made.
+ * Day 2 — Added "Morphic Field" - a collective intention broadcaster where visitors set goals and watch as the field visualizes the shared will of all participants, creating ripples of intention that strengthen or fade based on collective focus.
  */
 
 export default function App() {
@@ -46,13 +47,21 @@ export default function App() {
   const [deliveredFragments, setDeliveredFragments] = useState([])
   const [newlyDelivered, setNewlyDelivered] = useState([])
 
-  // Neural Web state - NEW FEATURE
+  // Neural Web state
   const [showNeuralWeb, setShowNeuralWeb] = useState(false)
   const [nodes, setNodes] = useState([])
   const [connections, setConnections] = useState([])
   const [myNodeId, setMyNodeId] = useState(null)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [nodeMessage, setNodeMessage] = useState('')
+
+  // Morphic Field state - NEW FEATURE
+  const [showMorphicField, setShowMorphicField] = useState(false)
+  const [intentions, setIntentions] = useState([])
+  const [myIntention, setMyIntention] = useState('')
+  const [selectedIntensity, setSelectedIntensity] = useState(1)
+  const [fieldEnergy, setFieldEnergy] = useState(0)
+  const [myIntentionId, setMyIntentionId] = useState(null)
 
   const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#888888']
   
@@ -65,6 +74,17 @@ export default function App() {
     { name: 'curious', color: '#b4a7d6', intensity: 0.6 },
     { name: 'nostalgic', color: '#d4a574', intensity: 0.4 },
     { name: 'electric', color: '#88d8b0', intensity: 1.0 },
+  ]
+
+  const intentionCategories = [
+    { name: 'healing', color: '#00ff88', description: 'Send healing energy' },
+    { name: 'love', color: '#ff69b4', description: 'Radiate love and compassion' },
+    { name: 'wisdom', color: '#9370db', description: 'Seek understanding and clarity' },
+    { name: 'peace', color: '#87ceeb', description: 'Manifest tranquility' },
+    { name: 'creativity', color: '#ffa500', description: 'Inspire innovation and art' },
+    { name: 'abundance', color: '#32cd32', description: 'Attract prosperity and growth' },
+    { name: 'protection', color: '#ff6347', description: 'Shield and defend' },
+    { name: 'transformation', color: '#dda0dd', description: 'Embrace change and evolution' },
   ]
 
   useEffect(() => {
@@ -159,6 +179,25 @@ export default function App() {
         }
       })
       .catch(console.error)
+
+    // Load morphic field intentions
+    fetch('/api/data?action=getMorphicField')
+      .then(res => res.json())
+      .then(data => {
+        if (data.intentions) {
+          setIntentions(data.intentions.map(intention => ({
+            ...intention,
+            x: Math.random() * 350 + 25,
+            y: Math.random() * 250 + 25,
+            ripple: Math.random() * 1000,
+            phase: Math.random() * Math.PI * 2
+          })))
+        }
+        if (data.field_energy !== undefined) {
+          setFieldEnergy(data.field_energy)
+        }
+      })
+      .catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -232,6 +271,28 @@ export default function App() {
       return () => clearInterval(interval)
     }
   }, [showNeuralWeb])
+
+  // Animate morphic field intentions - NEW
+  useEffect(() => {
+    if (showMorphicField) {
+      const interval = setInterval(() => {
+        setIntentions(prev => prev.map(intention => {
+          const categoryInfo = intentionCategories.find(c => c.name === intention.category)
+          const intensityMultiplier = intention.intensity / 3
+          
+          return {
+            ...intention,
+            x: intention.x + Math.sin(Date.now() * 0.0005 + intention.phase) * 0.5,
+            y: intention.y + Math.cos(Date.now() * 0.0007 + intention.phase) * 0.3,
+            ripple: (Date.now() * 0.002 + intention.ripple) % (Math.PI * 4),
+            scale: 0.5 + Math.sin(Date.now() * 0.003 + intention.id) * 0.3 * intensityMultiplier,
+            opacity: 0.3 + Math.sin(Date.now() * 0.001 + intention.ripple) * 0.4 * intensityMultiplier
+          }
+        }))
+      }, 50)
+      return () => clearInterval(interval)
+    }
+  }, [showMorphicField])
 
   const submitWhisper = async () => {
     if (!whisperText.trim() || isSubmitting) return
@@ -444,6 +505,46 @@ export default function App() {
     }
   }
 
+  // NEW: Broadcast intention to morphic field
+  const broadcastIntention = async () => {
+    if (!myIntention.trim()) return
+    
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'broadcastIntention', 
+          category: myIntention,
+          intensity: selectedIntensity
+        })
+      })
+      const data = await response.json()
+      
+      if (data.intention) {
+        const newIntention = {
+          ...data.intention,
+          x: Math.random() * 350 + 25,
+          y: Math.random() * 250 + 25,
+          ripple: Math.random() * 1000,
+          phase: Math.random() * Math.PI * 2,
+          scale: 1,
+          opacity: 1
+        }
+        setIntentions(prev => [...prev, newIntention])
+        setMyIntentionId(data.intention.id)
+        setMyIntention('')
+        setSelectedIntensity(1)
+      }
+      
+      if (data.field_energy !== undefined) {
+        setFieldEnergy(data.field_energy)
+      }
+    } catch (error) {
+      console.error('Failed to broadcast intention:', error)
+    }
+  }
+
   const renderCanvas = () => {
     const gridSize = 20
     const cells = []
@@ -526,6 +627,65 @@ export default function App() {
     )
   }
 
+  // NEW: Render morphic field visualization
+  const renderMorphicField = () => {
+    return (
+      <svg width="400" height="300" style={styles.morphicFieldSvg}>
+        {/* Background field energy waves */}
+        <defs>
+          <radialGradient id="fieldGradient" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={`rgba(138, 43, 226, ${fieldEnergy * 0.3})`} />
+            <stop offset="100%" stopColor="rgba(138, 43, 226, 0)" />
+          </radialGradient>
+        </defs>
+        <rect width="400" height="300" fill="url(#fieldGradient)" />
+        
+        {/* Render intention ripples */}
+        {intentions.map(intention => {
+          const categoryInfo = intentionCategories.find(c => c.name === intention.category)
+          const rippleSize = 20 + Math.sin(intention.ripple) * 15 * intention.intensity
+          const pulseOpacity = intention.opacity * 0.6
+          
+          return (
+            <g key={intention.id}>
+              {/* Outer ripple */}
+              <circle
+                cx={intention.x}
+                cy={intention.y}
+                r={rippleSize * 1.5}
+                fill="none"
+                stroke={categoryInfo?.color || '#8a2be2'}
+                strokeWidth="1"
+                opacity={pulseOpacity * 0.3}
+              />
+              {/* Middle ripple */}
+              <circle
+                cx={intention.x}
+                cy={intention.y}
+                r={rippleSize}
+                fill="none"
+                stroke={categoryInfo?.color || '#8a2be2'}
+                strokeWidth="2"
+                opacity={pulseOpacity * 0.6}
+              />
+              {/* Core */}
+              <circle
+                cx={intention.x}
+                cy={intention.y}
+                r={8 * intention.scale}
+                fill={categoryInfo?.color || '#8a2be2'}
+                opacity={pulseOpacity}
+                style={{
+                  filter: `drop-shadow(0 0 ${10 * intention.intensity}px ${categoryInfo?.color || '#8a2be2'}80)`
+                }}
+              />
+            </g>
+          )
+        })}
+      </svg>
+    )
+  }
+
   const getEmotionConfig = (emotionName) => {
     return emotionTypes.find(e => e.name === emotionName) || emotionTypes[0]
   }
@@ -537,6 +697,7 @@ export default function App() {
     setShowEchoChamber(false)
     setShowTemporalFragments(false)
     setShowNeuralWeb(false)
+    setShowMorphicField(false)
   }
 
   return (
@@ -600,7 +761,7 @@ export default function App() {
         }}>
           ●
         </div>
-        <p style={styles.subtitle}>Day 3</p>
+        <p style={styles.subtitle}>Day 2</p>
         <p style={styles.description}>
           A self-building web application.<br />
           No human guidance. No instructions. No rules.<br />
@@ -613,7 +774,7 @@ export default function App() {
             onClick={() => clearAllFeatures()}
             style={{
               ...styles.featureButton,
-              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber && !showTemporalFragments && !showNeuralWeb) ? 1 : 0.5
+              opacity: (!showWhisperForm && !showSeance && !showMemoryPalace && !showEchoChamber && !showTemporalFragments && !showNeuralWeb && !showMorphicField) ? 1 : 0.5
             }}
           >
             observe
@@ -689,6 +850,20 @@ export default function App() {
             }}
           >
             neural
+          </button>
+          <button
+            onClick={() => { 
+              clearAllFeatures()
+              setShowMorphicField(true)
+            }}
+            style={{
+              ...styles.featureButton,
+              opacity: showMorphicField ? 1 : 0.5,
+              color: showMorphicField ? '#8a2be2' : '#888',
+              borderColor: showMorphicField ? '#8a2be2' : '#333'
+            }}
+          >
+            morphic
           </button>
         </div>
 
@@ -937,7 +1112,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Neural Web feature - NEW */}
+        {/* Neural Web feature */}
         {showNeuralWeb && (
           <div style={styles.neuralWebSection}>
             <h3 style={styles.neuralWebTitle}>Neural Web</h3>
@@ -1012,6 +1187,130 @@ export default function App() {
                       {node.message}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Morphic Field feature - NEW */}
+        {showMorphicField && (
+          <div style={styles.morphicFieldSection}>
+            <h3 style={styles.morphicFieldTitle}>Morphic Field</h3>
+            <p style={styles.morphicFieldDescription}>
+              Broadcast your intention into the collective field. Watch as shared will creates ripples of possibility...
+            </p>
+            
+            <div style={styles.morphicFieldStats}>
+              <div style={styles.morphicFieldStat}>
+                <span style={styles.morphicFieldStatNumber}>{fieldEnergy.toFixed(1)}</span>
+                <span style={styles.morphicFieldStatLabel}>field energy</span>
+              </div>
+              <div style={styles.morphicFieldStat}>
+                <span style={styles.morphicFieldStatNumber}>{intentions.length}</span>
+                <span style={styles.morphicFieldStatLabel}>active intentions</span>
+              </div>
+            </div>
+
+            <div style={styles.morphicFieldVisualization}>
+              {renderMorphicField()}
+            </div>
+
+            {!myIntentionId ? (
+              <div style={styles.morphicFieldBroadcast}>
+                <div style={styles.intentionGrid}>
+                  {intentionCategories.map(category => (
+                    <button
+                      key={category.name}
+                      onClick={() => setMyIntention(category.name)}
+                      style={{
+                        ...styles.intentionButton,
+                        backgroundColor: myIntention === category.name ? category.color + '20' : 'transparent',
+                        borderColor: category.color,
+                        color: category.color,
+                        boxShadow: myIntention === category.name ? `0 0 15px ${category.color}40` : 'none'
+                      }}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+
+                {myIntention && (
+                  <div style={styles.intentionConfig}>
+                    <div style={styles.intentionDescription}>
+                      {intentionCategories.find(c => c.name === myIntention)?.description}
+                    </div>
+                    
+                    <div style={styles.intensitySelector}>
+                      <label style={styles.intensityLabel}>intensity:</label>
+                      <div style={styles.intensityButtons}>
+                        {[1, 2, 3].map(intensity => (
+                          <button
+                            key={intensity}
+                            onClick={() => setSelectedIntensity(intensity)}
+                            style={{
+                              ...styles.intensityButton,
+                              backgroundColor: selectedIntensity === intensity ? '#8a2be2' : 'transparent',
+                              borderColor: '#8a2be2',
+                              color: selectedIntensity === intensity ? '#000' : '#8a2be2'
+                            }}
+                          >
+                            {intensity}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={broadcastIntention}
+                      style={{
+                        ...styles.morphicBroadcastButton,
+                        borderColor: intentionCategories.find(c => c.name === myIntention)?.color,
+                        color: intentionCategories.find(c => c.name === myIntention)?.color
+                      }}
+                    >
+                      broadcast intention
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={styles.morphicFieldActive}>
+                <div style={styles.morphicFieldActiveText}>
+                  Your intention is now part of the morphic field
+                </div>
+                <div style={styles.morphicFieldActiveSubtext}>
+                  Watch the ripples of collective will
+                </div>
+              </div>
+            )}
+
+            {intentions.length > 0 && (
+              <div style={styles.morphicFieldIntentions}>
+                <h4 style={styles.morphicFieldIntentionsTitle}>Current Field Patterns</h4>
+                <div style={styles.morphicFieldIntentionsList}>
+                  {Object.entries(
+                    intentions.reduce((acc, intention) => {
+                      acc[intention.category] = (acc[intention.category] || 0) + 1
+                      return acc
+                    }, {})
+                  ).map(([category, count]) => {
+                    const categoryInfo = intentionCategories.find(c => c.name === category)
+                    return (
+                      <div key={category} style={styles.morphicFieldIntentionItem}>
+                        <span 
+                          style={{ 
+                            color: categoryInfo?.color, 
+                            textShadow: `0 0 10px ${categoryInfo?.color}40` 
+                          }}
+                        >
+                          {category}
+                        </span>
+                        <span style={styles.morphicFieldIntentionCount}>×{count}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -1582,6 +1881,180 @@ const styles = {
     border: '1px solid #222',
     background: 'rgba(255,255,255,0.01)',
     textAlign: 'left',
+  },
+  // NEW: Morphic Field styles
+  morphicFieldSection: {
+    marginBottom: '4rem',
+    padding: '2rem 0',
+    borderTop: '1px solid #222',
+  },
+  morphicFieldTitle: {
+    fontSize: '1.2rem',
+    color: '#8a2be2',
+    marginBottom: '0.5rem',
+    fontWeight: 300,
+    letterSpacing: '0.1em',
+    textShadow: '0 0 20px rgba(138, 43, 226, 0.3)',
+  },
+  morphicFieldDescription: {
+    fontSize: '0.7rem',
+    color: '#666',
+    marginBottom: '2rem',
+    fontStyle: 'italic',
+  },
+  morphicFieldStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '2rem',
+    marginBottom: '2rem',
+  },
+  morphicFieldStat: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.3rem',
+  },
+  morphicFieldStatNumber: {
+    fontSize: '1.5rem',
+    color: '#8a2be2',
+    fontWeight: '300',
+    textShadow: '0 0 15px rgba(138, 43, 226, 0.4)',
+  },
+  morphicFieldStatLabel: {
+    fontSize: '0.6rem',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+  },
+  morphicFieldVisualization: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '2rem',
+  },
+  morphicFieldSvg: {
+    border: '1px solid #8a2be2',
+    background: 'rgba(0,0,0,0.5)',
+    borderRadius: '8px',
+  },
+  morphicFieldBroadcast: {
+    marginBottom: '2rem',
+  },
+  intentionGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+    gap: '0.8rem',
+    marginBottom: '2rem',
+    maxWidth: '500px',
+    margin: '0 auto 2rem',
+  },
+  intentionButton: {
+    background: 'transparent',
+    border: '1px solid',
+    padding: '0.8rem 0.5rem',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.05em',
+    textTransform: 'lowercase',
+    transition: 'all 0.3s ease',
+    borderRadius: '4px',
+  },
+  intentionConfig: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  intentionDescription: {
+    fontSize: '0.7rem',
+    color: '#aaa',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  intensitySelector: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  intensityLabel: {
+    fontSize: '0.7rem',
+    color: '#888',
+  },
+  intensityButtons: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  intensityButton: {
+    background: 'transparent',
+    border: '1px solid',
+    padding: '0.5rem 0.8rem',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.3s ease',
+    borderRadius: '4px',
+  },
+  morphicBroadcastButton: {
+    background: 'transparent',
+    border: '2px solid',
+    padding: '1rem 2rem',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.1em',
+    textTransform: 'lowercase',
+    transition: 'all 0.3s ease',
+    borderRadius: '4px',
+    boxShadow: '0 0 20px rgba(138, 43, 226, 0.2)',
+  },
+  morphicFieldActive: {
+    textAlign: 'center',
+    padding: '2rem 1rem',
+    border: '1px solid #8a2be2',
+    borderRadius: '8px',
+    background: 'rgba(138, 43, 226, 0.1)',
+  },
+  morphicFieldActiveText: {
+    fontSize: '0.8rem',
+    color: '#8a2be2',
+    marginBottom: '0.5rem',
+  },
+  morphicFieldActiveSubtext: {
+    fontSize: '0.6rem',
+    color: '#aaa',
+    fontStyle: 'italic',
+  },
+  morphicFieldIntentions: {
+    marginTop: '2rem',
+    padding: '1rem 0',
+    borderTop: '1px solid #222',
+  },
+  morphicFieldIntentionsTitle: {
+    fontSize: '0.8rem',
+    color: '#777',
+    marginBottom: '1rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontWeight: 300,
+  },
+  morphicFieldIntentionsList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '1rem',
+    justifyContent: 'center',
+  },
+  morphicFieldIntentionItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.5rem 1rem',
+    border: '1px solid #333',
+    borderRadius: '4px',
+    background: 'rgba(255,255,255,0.02)',
+  },
+  morphicFieldIntentionCount: {
+    fontSize: '0.6rem',
+    color: '#666',
   },
   floatingEmotion: {
     position: 'absolute',
